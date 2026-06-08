@@ -1,252 +1,361 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RPi Network Monitor</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RPi Network Monitor</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-  :root {
-    --bg:       #0f1117;
-    --surface:  #1a1d27;
-    --border:   #2a2d3a;
-    --text:     #e2e4ee;
-    --muted:    #7b7f93;
-    --green:    #22c55e;
-    --amber:    #f59e0b;
-    --red:      #ef4444;
-    --blue:     #3b82f6;
-    --purple:   #a855f7;
-  }
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2d3a;
+      --text: #e2e4ee;
+      --muted: #7b7f93;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --blue: #3b82f6;
+      --purple: #a855f7;
+    }
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    font-size: 13px;
-    min-height: 100vh;
-    padding: 24px;
-  }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 13px;
+      min-height: 100vh;
+      padding: 24px;
+    }
 
-  header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 28px;
-  }
-  header h1 { font-size: 18px; font-weight: 600; letter-spacing: 0.5px; }
-  #conn-dot {
-    width: 9px; height: 9px; border-radius: 50%;
-    background: var(--red);
-    transition: background 0.3s;
-    flex-shrink: 0;
-  }
-  #conn-dot.live { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
 
-  .grid { display: grid; gap: 16px; }
-  .grid-2 { grid-template-columns: 1fr 1fr; }
-  .grid-4 { grid-template-columns: repeat(4, 1fr); }
+    header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
 
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px;
-  }
-  .card-label {
-    font-size: 11px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    margin-bottom: 8px;
-  }
-  .card-value {
-    font-size: 22px;
-    font-weight: 600;
-  }
+    #conn-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--red);
+      transition: background 0.3s;
+      flex-shrink: 0;
+    }
 
-  /* State pill */
-  .state-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 10px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-  }
-  .state-pill::before {
-    content: '';
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: currentColor;
-  }
-  .state-UP         { color: var(--green);  background: rgba(34,197,94,0.12); }
-  .state-DOWN       { color: var(--red);    background: rgba(239,68,68,0.12); }
-  .state-DEGRADED   { color: var(--amber);  background: rgba(245,158,11,0.12); }
-  .state-RECOVERING { color: var(--blue);   background: rgba(59,130,246,0.12); }
-  .state-UNKNOWN    { color: var(--muted);  background: rgba(123,127,147,0.12); }
+    #conn-dot.live {
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+    }
 
-  /* FSM diagram */
-  .fsm-wrap { margin-top: 8px; }
-  .fsm-states { display: flex; gap: 8px; flex-wrap: wrap; }
-  .fsm-node {
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 6px 12px;
-    font-size: 11px;
-    color: var(--muted);
-    transition: all 0.3s;
-  }
-  .fsm-node.active {
-    border-color: var(--green);
-    color: var(--green);
-    background: rgba(34,197,94,0.08);
-    box-shadow: 0 0 8px rgba(34,197,94,0.2);
-  }
-  .fsm-node.active-DOWN { border-color: var(--red); color: var(--red); background: rgba(239,68,68,0.08); }
-  .fsm-node.active-DEGRADED { border-color: var(--amber); color: var(--amber); background: rgba(245,158,11,0.08); }
-  .fsm-node.active-RECOVERING { border-color: var(--blue); color: var(--blue); background: rgba(59,130,246,0.08); }
+    #poll-label {
+      color: var(--muted);
+      margin-left: auto;
+      font-size: 11px;
+    }
 
-  .chart-wrap { position: relative; height: 160px; margin-top: 12px; }
-  canvas { display: block; }
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
 
-  .iface-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
-  }
-  .iface-name { font-size: 16px; font-weight: 600; }
+    .grid-2 {
+      grid-template-columns: 1fr 1fr;
+    }
 
-  section { margin-bottom: 24px; }
-  section h2 { font-size: 13px; color: var(--muted); text-transform: uppercase;
-               letter-spacing: 0.8px; margin-bottom: 12px; }
+    .grid-4 {
+      grid-template-columns: repeat(4, 1fr);
+    }
 
-  #log-box {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px 16px;
-    height: 140px;
-    overflow-y: auto;
-    font-size: 11px;
-    line-height: 1.7;
-    color: var(--muted);
-  }
-  .log-entry.transition { color: var(--amber); }
-  .log-entry.error      { color: var(--red); }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+    }
 
-  @media (max-width: 700px) {
-    .grid-2, .grid-4 { grid-template-columns: 1fr; }
-  }
-</style>
+    .card-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 8px;
+    }
+
+    .card-value {
+      font-size: 22px;
+      font-weight: 600;
+    }
+
+    .state-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+
+    .state-pill::before {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .state-UP {
+      color: var(--green);
+      background: rgba(34, 197, 94, 0.12);
+    }
+
+    .state-DOWN {
+      color: var(--red);
+      background: rgba(239, 68, 68, 0.12);
+    }
+
+    .state-DEGRADED {
+      color: var(--amber);
+      background: rgba(245, 158, 11, 0.12);
+    }
+
+    .state-RECOVERING {
+      color: var(--blue);
+      background: rgba(59, 130, 246, 0.12);
+    }
+
+    .state-UNKNOWN {
+      color: var(--muted);
+      background: rgba(123, 127, 147, 0.12);
+    }
+
+    .fsm-wrap {
+      margin-top: 8px;
+    }
+
+    .fsm-states {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .fsm-node {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 11px;
+      color: var(--muted);
+      transition: all 0.3s;
+    }
+
+    .fsm-node.active {
+      border-color: var(--green);
+      color: var(--green);
+      background: rgba(34, 197, 94, 0.08);
+      box-shadow: 0 0 8px rgba(34, 197, 94, 0.2);
+    }
+
+    .fsm-node.active-DOWN {
+      border-color: var(--red);
+      color: var(--red);
+      background: rgba(239, 68, 68, 0.08);
+    }
+
+    .fsm-node.active-DEGRADED {
+      border-color: var(--amber);
+      color: var(--amber);
+      background: rgba(245, 158, 11, 0.08);
+    }
+
+    .fsm-node.active-RECOVERING {
+      border-color: var(--blue);
+      color: var(--blue);
+      background: rgba(59, 130, 246, 0.08);
+    }
+
+    .chart-wrap {
+      position: relative;
+      height: 160px;
+      margin-top: 12px;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    .iface-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .iface-name {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    section {
+      margin-bottom: 24px;
+    }
+
+    section h2 {
+      font-size: 13px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 12px;
+    }
+
+    #log-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      height: 140px;
+      overflow-y: auto;
+      font-size: 11px;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+
+    .log-entry.transition {
+      color: var(--amber);
+    }
+
+    .log-entry.error {
+      color: var(--red);
+    }
+
+    .log-entry.info {
+      color: var(--blue);
+    }
+
+    @media (max-width: 700px) {
+
+      .grid-2,
+      .grid-4 {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
+
 <body>
 
-<header>
-  <div id="conn-dot"></div>
-  <h1>RPi Network Monitor</h1>
-  <span id="conn-label" style="color:var(--muted);margin-left:auto;font-size:11px">connecting…</span>
-</header>
+  <header>
+    <div id="conn-dot"></div>
+    <h1>RPi Network Monitor</h1>
+    <span id="poll-label">connecting…</span>
+  </header>
 
-<!-- Per-interface panels are injected here -->
-<div id="ifaces"></div>
+  <div id="ifaces"></div>
 
-<!-- Event log -->
-<section>
-  <h2>Event log</h2>
-  <div id="log-box"></div>
-</section>
+  <section>
+    <h2>Event log</h2>
+    <div id="log-box"></div>
+  </section>
 
-<script>
-// ── Constants ───────────────────────────────────────────────────────────────
-const WS_URL      = `ws://${location.host}/ws/telemetry`;
-const REST_URL    = `/api/status`;
-const HISTORY     = 60;
-const FSM_STATES  = ['UNKNOWN', 'UP', 'DEGRADED', 'RECOVERING', 'DOWN'];
-const STATE_COLOR = {
-  UP: '#22c55e', DOWN: '#ef4444',
-  DEGRADED: '#f59e0b', RECOVERING: '#3b82f6', UNKNOWN: '#7b7f93'
-};
+  <script>
+    // ── Config ───────────────────────────────────────────────────────────────────
+    const REST_URL = '/api/status';
+    const POLL_MS = 1000;   // poll every 1 second
+    const HISTORY = 60;
+    const FSM_STATES = ['UNKNOWN', 'UP', 'DEGRADED', 'RECOVERING', 'DOWN'];
 
-// ── Per-interface state ─────────────────────────────────────────────────────
-const ifaces = {};   // iface -> { labels[], rx[], tx[], errors[], charts{} }
+    // ── Per-interface state ───────────────────────────────────────────────────────
+    const ifaces = {};
 
-// ── Bootstrap: load REST snapshot then open WS ─────────────────────────────
-async function init() {
-  try {
-    const r = await fetch(REST_URL);
-    const d = await r.json();
-    for (const [iface, snap] of Object.entries(d.interfaces || {})) {
-      ensure_iface(iface);
-      apply_frame(snap);
+    // ── Polling loop (replaces WebSocket) ────────────────────────────────────────
+    let poll_failures = 0;
+
+    async function poll() {
+      try {
+        const r = await fetch(REST_URL);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const d = await r.json();
+
+        poll_failures = 0;
+        set_live(true);
+
+        for (const [iface, snap] of Object.entries(d.interfaces || {})) {
+          ensure_iface(iface);
+          apply_frame(snap);
+        }
+
+        // show how stale the data is
+        document.getElementById('poll-label').textContent =
+          `polled ${new Date().toLocaleTimeString()}`;
+
+      } catch (err) {
+        poll_failures++;
+        set_live(false);
+        document.getElementById('poll-label').textContent =
+          `retry ${poll_failures} — ${err.message}`;
+        log_entry(`Poll failed: ${err.message}`, 'error');
+      }
+
+      setTimeout(poll, POLL_MS);
     }
-  } catch (_) { /* daemon not up yet */ }
-  connect_ws();
-}
 
-// ── WebSocket ───────────────────────────────────────────────────────────────
-let ws, reconnect_timer;
-function connect_ws() {
-  ws = new WebSocket(WS_URL);
+    function set_live(ok) {
+      const dot = document.getElementById('conn-dot');
+      ok ? dot.classList.add('live') : dot.classList.remove('live');
+    }
 
-  ws.onopen = () => {
-    clearTimeout(reconnect_timer);
-    document.getElementById('conn-dot').classList.add('live');
-    document.getElementById('conn-label').textContent = 'live';
-    log_entry('WebSocket connected', 'info');
-  };
+    // ── DOM helpers ───────────────────────────────────────────────────────────────
+    function ensure_iface(name) {
+      if (ifaces[name]) return;
+      ifaces[name] = { labels: [], rx: [], tx: [], err: [], last_state: null, charts: {} };
+      render_iface_panel(name);
+      log_entry(`New interface detected: ${name}`, 'info');
+    }
 
-  ws.onmessage = ({ data }) => {
-    let frame;
-    try { frame = JSON.parse(data); } catch { return; }
-    if (frame.type === 'ping') return;
-    ensure_iface(frame.iface);
-    apply_frame(frame);
-  };
-
-  ws.onclose = () => {
-    document.getElementById('conn-dot').classList.remove('live');
-    document.getElementById('conn-label').textContent = 'reconnecting…';
-    reconnect_timer = setTimeout(connect_ws, 3000);
-  };
-}
-
-// ── DOM helpers ─────────────────────────────────────────────────────────────
-function ensure_iface(name) {
-  if (ifaces[name]) return;
-  ifaces[name] = {
-    labels: [], rx: [], tx: [], err: [],
-    last_state: null,
-    charts: {}
-  };
-  render_iface_panel(name);
-}
-
-function render_iface_panel(name) {
-  const wrap = document.getElementById('ifaces');
-
-  const panel = document.createElement('section');
-  panel.id = `panel-${name}`;
-  panel.innerHTML = `
+    function render_iface_panel(name) {
+      const wrap = document.getElementById('ifaces');
+      const panel = document.createElement('section');
+      panel.id = `panel-${name}`;
+      panel.innerHTML = `
     <div class="iface-header">
       <span class="iface-name">${name}</span>
       <span id="pill-${name}" class="state-pill state-UNKNOWN">UNKNOWN</span>
     </div>
     <div class="grid grid-4" style="margin-bottom:16px">
-      <div class="card"><div class="card-label">RX</div>
-        <div class="card-value" id="rx-${name}">—</div></div>
-      <div class="card"><div class="card-label">TX</div>
-        <div class="card-value" id="tx-${name}">—</div></div>
-      <div class="card"><div class="card-label">Error rate</div>
-        <div class="card-value" id="err-${name}">—</div></div>
-      <div class="card"><div class="card-label">Carrier</div>
-        <div class="card-value" id="carrier-${name}">—</div></div>
+      <div class="card">
+        <div class="card-label">RX</div>
+        <div class="card-value" id="rx-${name}">—</div>
+      </div>
+      <div class="card">
+        <div class="card-label">TX</div>
+        <div class="card-value" id="tx-${name}">—</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Error rate</div>
+        <div class="card-value" id="err-${name}">—</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Carrier</div>
+        <div class="card-value" id="carrier-${name}">—</div>
+      </div>
     </div>
 
     <div class="grid grid-2" style="margin-bottom:16px">
@@ -264,149 +373,148 @@ function render_iface_panel(name) {
       <div class="card-label" style="margin-bottom:10px">Link FSM</div>
       <div class="fsm-states" id="fsm-${name}">
         ${FSM_STATES.map(s =>
-          `<div class="fsm-node" id="fsm-${name}-${s}" data-state="${s}">${s}</div>`
-        ).join('')}
+        `<div class="fsm-node" id="fsm-${name}-${s}">${s}</div>`
+      ).join('')}
       </div>
     </div>
   `;
-  wrap.appendChild(panel);
+      wrap.appendChild(panel);
 
-  // Build charts
-  const st = ifaces[name];
-  const base_opts = (color, label) => ({
-    type: 'line',
-    data: {
-      labels: st.labels,
-      datasets: [{
-        label,
-        data: [],
-        borderColor: color,
-        backgroundColor: color + '22',
-        borderWidth: 1.5,
-        pointRadius: 0,
-        fill: true,
-        tension: 0.3,
-      }]
-    },
-    options: {
-      animation: false,
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { display: false },
-        y: {
-          display: true,
-          grid: { color: '#2a2d3a' },
-          ticks: { color: '#7b7f93', font: { size: 10 } }
+      const st = ifaces[name];
+
+      // Throughput chart (RX + TX)
+      st.charts.bps = new Chart(
+        document.getElementById(`chart-bps-${name}`), {
+        type: 'line',
+        data: {
+          labels: st.labels,
+          datasets: [
+            {
+              label: 'RX', data: st.rx, borderColor: '#3b82f6',
+              backgroundColor: '#3b82f615', borderWidth: 1.5,
+              pointRadius: 0, fill: true, tension: 0.3
+            },
+            {
+              label: 'TX', data: st.tx, borderColor: '#a855f7',
+              backgroundColor: '#a855f715', borderWidth: 1.5,
+              pointRadius: 0, fill: true, tension: 0.3
+            },
+          ]
+        },
+        options: chart_opts()
+      });
+
+      // Error rate chart
+      st.charts.err = new Chart(
+        document.getElementById(`chart-err-${name}`), {
+        type: 'line',
+        data: {
+          labels: st.labels,
+          datasets: [{
+            label: 'Error rate', data: st.err,
+            borderColor: '#ef4444', backgroundColor: '#ef444415',
+            borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.3
+          }]
+        },
+        options: chart_opts()
+      });
+    }
+
+    function chart_opts() {
+      return {
+        animation: false,
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { display: false },
+          y: {
+            display: true,
+            grid: { color: '#2a2d3a' },
+            ticks: { color: '#7b7f93', font: { size: 10 } }
+          }
         }
+      };
+    }
+
+    // ── Apply one REST snapshot frame ─────────────────────────────────────────────
+    function apply_frame(f) {
+      const name = f.iface;
+      const st = ifaces[name];
+      if (!st) return;
+
+      const ts = new Date(f.ts_ms || Date.now()).toLocaleTimeString();
+
+      // Rolling history
+      st.labels.push(ts);
+      st.rx.push(+(f.rx_bps || 0).toFixed(0));
+      st.tx.push(+(f.tx_bps || 0).toFixed(0));
+      st.err.push(+(f.error_rate || 0).toFixed(6));
+      if (st.labels.length > HISTORY) {
+        st.labels.shift(); st.rx.shift(); st.tx.shift(); st.err.shift();
       }
+
+      // Metric cards
+      document.getElementById(`rx-${name}`).textContent =
+        fmt_bps(f.rx_bps);
+      document.getElementById(`tx-${name}`).textContent =
+        fmt_bps(f.tx_bps);
+      document.getElementById(`err-${name}`).textContent =
+        ((f.error_rate || 0) * 100).toFixed(4) + '%';
+
+      const carrier_el = document.getElementById(`carrier-${name}`);
+      carrier_el.textContent = f.carrier ? 'UP' : 'DOWN';
+      carrier_el.style.color = f.carrier ? 'var(--green)' : 'var(--red)';
+
+      // State pill
+      const state = f.state || 'UNKNOWN';
+      const pill = document.getElementById(`pill-${name}`);
+      pill.className = `state-pill state-${state}`;
+      pill.textContent = state;
+
+      // FSM highlight
+      FSM_STATES.forEach(s => {
+        const node = document.getElementById(`fsm-${name}-${s}`);
+        if (!node) return;
+        node.className = 'fsm-node';
+        if (s === state)
+          node.classList.add('active', state !== 'UP' ? `active-${state}` : '');
+      });
+
+      // Log state transitions
+      if (st.last_state !== null && st.last_state !== state) {
+        log_entry(`[${name}] ${st.last_state} → ${state}`, 'transition');
+      }
+      st.last_state = state;
+
+      // Redraw charts
+      st.charts.bps.update('quiet');
+      st.charts.err.update('quiet');
     }
-  });
 
-  st.charts.bps = new Chart(
-    document.getElementById(`chart-bps-${name}`),
-    {
-      ...base_opts('#3b82f6', 'RX bps'),
-      data: {
-        labels: st.labels,
-        datasets: [
-          { label: 'RX', data: st.rx, borderColor: '#3b82f6',
-            backgroundColor: '#3b82f620', borderWidth: 1.5,
-            pointRadius: 0, fill: false, tension: 0.3 },
-          { label: 'TX', data: st.tx, borderColor: '#a855f7',
-            backgroundColor: '#a855f720', borderWidth: 1.5,
-            pointRadius: 0, fill: false, tension: 0.3 },
-        ]
-      },
-      options: base_opts('#3b82f6', 'bps').options
+    // ── Helpers ───────────────────────────────────────────────────────────────────
+    function fmt_bps(v) {
+      v = v || 0;
+      if (v >= 1e9) return (v / 1e9).toFixed(2) + ' Gbps';
+      if (v >= 1e6) return (v / 1e6).toFixed(2) + ' Mbps';
+      if (v >= 1e3) return (v / 1e3).toFixed(1) + ' Kbps';
+      return v.toFixed(0) + ' bps';
     }
-  );
 
-  st.charts.err = new Chart(
-    document.getElementById(`chart-err-${name}`),
-    base_opts('#ef4444', 'Error rate')
-  );
-  st.charts.err.data.datasets[0].data = st.err;
-}
+    function log_entry(msg, cls = '') {
+      const box = document.getElementById('log-box');
+      const el = document.createElement('div');
+      el.className = `log-entry ${cls}`;
+      el.textContent = `${new Date().toLocaleTimeString()}  ${msg}`;
+      box.appendChild(el);
+      box.scrollTop = box.scrollHeight;
+      while (box.children.length > 200) box.removeChild(box.firstChild);
+    }
 
-// ── Apply incoming frame ─────────────────────────────────────────────────────
-function apply_frame(f) {
-  const name  = f.iface;
-  const st    = ifaces[name];
-  if (!st) return;
-
-  const ts = new Date(f.ts_ms || Date.now()).toLocaleTimeString();
-
-  // Rolling history
-  st.labels.push(ts);
-  st.rx.push(+(f.rx_bps || 0).toFixed(0));
-  st.tx.push(+(f.tx_bps || 0).toFixed(0));
-  st.err.push(+(f.error_rate || 0).toFixed(6));
-  if (st.labels.length > HISTORY) {
-    st.labels.shift(); st.rx.shift(); st.tx.shift(); st.err.shift();
-  }
-
-  // Metric cards
-  document.getElementById(`rx-${name}`).textContent  = fmt_bps(f.rx_bps);
-  document.getElementById(`tx-${name}`).textContent  = fmt_bps(f.tx_bps);
-  document.getElementById(`err-${name}`).textContent =
-    ((f.error_rate || 0) * 100).toFixed(4) + '%';
-  const carrier_el = document.getElementById(`carrier-${name}`);
-  carrier_el.textContent = f.carrier ? 'UP' : 'DOWN';
-  carrier_el.style.color = f.carrier ? 'var(--green)' : 'var(--red)';
-
-  // State pill
-  const state = f.state || 'UNKNOWN';
-  const pill  = document.getElementById(`pill-${name}`);
-  pill.className = `state-pill state-${state}`;
-  pill.textContent = state;
-
-  // FSM highlight
-  FSM_STATES.forEach(s => {
-    const node = document.getElementById(`fsm-${name}-${s}`);
-    if (!node) return;
-    node.className = 'fsm-node';
-    if (s === state) node.classList.add(`active${state !== 'UP' ? '-' + state : ''}`,'active');
-  });
-
-  // Log FSM transitions
-  if (st.last_state && st.last_state !== state) {
-    log_entry(
-      `[${name}] ${st.last_state} → ${state}`,
-      'transition'
-    );
-  }
-  st.last_state = state;
-
-  // Update charts
-  st.charts.bps.update('quiet');
-  st.charts.err.update('quiet');
-}
-
-// ── Formatters ───────────────────────────────────────────────────────────────
-function fmt_bps(v) {
-  v = v || 0;
-  if (v >= 1e9) return (v / 1e9).toFixed(2) + ' Gbps';
-  if (v >= 1e6) return (v / 1e6).toFixed(2) + ' Mbps';
-  if (v >= 1e3) return (v / 1e3).toFixed(1) + ' Kbps';
-  return v.toFixed(0) + ' bps';
-}
-
-// ── Event log ────────────────────────────────────────────────────────────────
-function log_entry(msg, cls = '') {
-  const box = document.getElementById('log-box');
-  const el  = document.createElement('div');
-  const now = new Date().toLocaleTimeString();
-  el.className = `log-entry ${cls}`;
-  el.textContent = `${now}  ${msg}`;
-  box.appendChild(el);
-  box.scrollTop = box.scrollHeight;
-  // Keep at most 200 entries
-  while (box.children.length > 200) box.removeChild(box.firstChild);
-}
-
-init();
-</script>
+    // ── Start ─────────────────────────────────────────────────────────────────────
+    log_entry('Dashboard started — polling /api/status every 1s', 'info');
+    poll();
+  </script>
 </body>
+
 </html>
