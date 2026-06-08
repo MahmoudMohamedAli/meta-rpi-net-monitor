@@ -143,7 +143,7 @@ Both systemd services start automatically on boot.
 | Lock-free SPSC ring buffer | Zero mutex overhead between poller and IPC threads |
 | UDP for C++ → Python IPC | Decouples languages; Python can restart independently |
 | `/proc/net/dev` polling | No kernel module required; works on any Linux 2.6+ |
-| http + asyncio | Single-threaded but handles many WS clients concurrently |
+| HTTP + asyncio | Single-threaded but handles many WS clients concurrently |
 | Yocto `useradd` class | Daemon runs as unprivileged `netmon` user |
 
 
