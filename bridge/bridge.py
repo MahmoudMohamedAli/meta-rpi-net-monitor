@@ -28,7 +28,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/api/status":
-            self._json({"interfaces": latest, "ts_ms": _ms()})
+            self._json({"interfaces": latest, "ts_ms": int(time.time() * 1000)})
 
         elif self.path.startswith("/api/history/"):
             iface = self.path.split("/")[-1]
