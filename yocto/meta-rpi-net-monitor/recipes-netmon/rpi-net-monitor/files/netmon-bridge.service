@@ -1,0 +1,29 @@
+[Unit]
+Description=RPi Network Monitor Python Bridge
+Documentation=https://github.com/MahmoudMohamedAli/meta-rpi-net-monitor.git
+After=network.target netmon.service
+Requires=netmon.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/netmon/bridge.py
+WorkingDirectory=/opt/netmon
+Restart=on-failure
+RestartSec=5s
+
+User=netmon
+Group=netmon
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadOnlyPaths=/opt/netmon
+ReadWritePaths=/run/netmon
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=netmon-bridge
+
+[Install]
+WantedBy=multi-user.target

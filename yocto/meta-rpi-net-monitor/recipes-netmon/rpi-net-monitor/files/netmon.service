@@ -1,0 +1,36 @@
+[Unit]
+Description=RPi Network Telemetry Daemon
+Documentation=https://github.com/MahmoudMohamedAli/meta-rpi-net-monitor.git
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/netmon
+Restart=on-failure
+RestartSec=5s
+
+# Run as unprivileged user — only needs read access to /proc/net/dev
+User=netmon
+Group=netmon
+
+# This line safely creates /run/netmon in RAM on bootup!
+RuntimeDirectory=netmon
+RuntimeDirectoryMode=0755
+
+# Harden the service
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadOnlyPaths=/
+# Allow reading sysfs network counters
+ReadWritePaths=/run/netmon
+
+# Logging goes to syslog (journald)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=netmon
+
+[Install]
+WantedBy=multi-user.target
