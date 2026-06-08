@@ -477,8 +477,10 @@
         const node = document.getElementById(`fsm-${name}-${s}`);
         if (!node) return;
         node.className = 'fsm-node';
-        if (s === state)
-          node.classList.add('active', state !== 'UP' ? `active-${state}` : '');
+        if (s === state) {
+          node.classList.add('active');
+          if (state !== 'UP') node.classList.add(`active-${state}`);
+        }
       });
 
       // Log state transitions
