@@ -146,6 +146,9 @@ Both systemd services start automatically on boot.
 | HTTP + asyncio | Single-threaded but handles many WS clients concurrently |
 | Yocto `useradd` class | Daemon runs as unprivileged `netmon` user |
 
+## Demo
+
+https://github.com/user-attachments/assets/d2c93ed0-d128-4af0-95ca-c463189d712b
 
 ## Maintainer
 
